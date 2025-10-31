@@ -1,0 +1,207 @@
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercício - Cadastro de Notas</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width:900px; margin:20px auto; padding:0 16px; }
+        form { display: grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:end; }
+        label { display:block; font-size:0.9rem; margin-bottom:4px; }
+        .full { grid-column: 1 / -1; }
+        input[type="text"], input[type="number"] { width:100%; padding:8px; box-sizing:border-box; }
+        .buttons { display:flex; gap:8px; }
+        .msg { margin-top:8px; color:#085; }
+        .error { color:#c33; }
+        table { width:100%; border-collapse: collapse; margin-top:16px; }
+        th, td { border:1px solid #ddd; padding:8px; text-align:left; font-size:0.9rem; }
+        th { background:#f6f6f6; }
+        .status.aprovado { color:green; font-weight:600; }
+        .status.reprovado { color:crimson; font-weight:600; }
+    </style>
+</head>
+<body>
+    <h1>Cadastro de Alunos - Notas</h1>
+
+    <form id="formNotas" onsubmit="return false;">
+        <div class="full">
+            <label for="nome">Nome</label>
+            <input id="nome" name="nome" type="text" required />
+        </div>
+
+        <div>
+            <label for="rgm">RGM</label>
+            <input id="rgm" name="rgm" type="text" required />
+        </div>
+
+        <div>
+            <label for="parcial">Nota parcial (máx 2)</label>
+            <input id="parcial" name="parcial" type="number" step="0.1" min="0" max="2" required />
+        </div>
+
+        <div>
+            <label for="exercicios">Nota exercícios (máx 1)</label>
+            <input id="exercicios" name="exercicios" type="number" step="0.1" min="0" max="1" required />
+        </div>
+
+        <div>
+            <label for="projeto">Nota projeto (máx 2)</label>
+            <input id="projeto" name="projeto" type="number" step="0.1" min="0" max="2" required />
+        </div>
+
+        <div>
+            <label for="regimental">Nota regimental (máx 5)</label>
+            <input id="regimental" name="regimental" type="number" step="0.1" min="0" max="5" required />
+        </div>
+
+        <div class="full buttons">
+            <button id="btnCadastrar" type="button">Cadastrar</button>
+            <button id="btnExibir" type="button">Exibir dados</button>
+            <button id="btnLimpar" type="button">Limpar armazenamento</button>
+        </div>
+
+        <div class="full">
+            <div id="mensagens" aria-live="polite"></div>
+        </div>
+    </form>
+
+    <div id="tabelaContainer"></div>
+
+    <script>
+        const KEY = 'alunosNotas';
+        let alunos = load();
+
+        const el = {
+            nome: document.getElementById('nome'),
+            rgm: document.getElementById('rgm'),
+            parcial: document.getElementById('parcial'),
+            exercicios: document.getElementById('exercicios'),
+            projeto: document.getElementById('projeto'),
+            regimental: document.getElementById('regimental'),
+            mensagens: document.getElementById('mensagens'),
+            tabelaContainer: document.getElementById('tabelaContainer'),
+            btnCadastrar: document.getElementById('btnCadastrar'),
+            btnExibir: document.getElementById('btnExibir'),
+            btnLimpar: document.getElementById('btnLimpar')
+        };
+
+        el.btnCadastrar.addEventListener('click', cadastrar);
+        el.btnExibir.addEventListener('click', () => renderTabela(alunos));
+        el.btnLimpar.addEventListener('click', limparArmazenamento);
+
+        function validarCampos() {
+            const nome = el.nome.value.trim();
+            const rgm = el.rgm.value.trim();
+            if (!nome) return { ok: false, msg: 'Nome obrigatório.' };
+            if (!rgm) return { ok: false, msg: 'RGM obrigatório.' };
+
+            const parcial = parseFloat(el.parcial.value);
+            const exercicios = parseFloat(el.exercicios.value);
+            const projeto = parseFloat(el.projeto.value);
+            const regimental = parseFloat(el.regimental.value);
+
+            if (Number.isNaN(parcial) || parcial < 0 || parcial > 2) return { ok:false, msg:'Nota parcial inválida (0–2).' };
+            if (Number.isNaN(exercicios) || exercicios < 0 || exercicios > 1) return { ok:false, msg:'Nota exercícios inválida (0–1).' };
+            if (Number.isNaN(projeto) || projeto < 0 || projeto > 2) return { ok:false, msg:'Nota projeto inválida (0–2).' };
+            if (Number.isNaN(regimental) || regimental < 0 || regimental > 5) return { ok:false, msg:'Nota regimental inválida (0–5).' };
+
+            return {
+                ok:true,
+                data: { nome, rgm, parcial, exercicios, projeto, regimental }
+            };
+        }
+
+        function cadastrar() {
+            const v = validarCampos();
+            if (!v.ok) {
+                mostrarMensagem(v.msg, true);
+                return;
+            }
+            const aluno = v.data;
+            aluno.total = +(aluno.parcial + aluno.exercicios + aluno.projeto + aluno.regimental).toFixed(2);
+            aluno.status = aluno.total >= 6 ? 'Aprovado' : 'Reprovado';
+            alunos.push(aluno);
+            save();
+            mostrarMensagem('Aluno cadastrado com sucesso.', false);
+            limparFormulario();
+            renderTabela(alunos);
+        }
+
+        function renderTabela(list) {
+            if (!list || list.length === 0) {
+                el.tabelaContainer.innerHTML = '<p>Nenhum registro para exibir.</p>';
+                return;
+            }
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th>Nome</th><th>RGM</th><th>Parcial</th><th>Exercícios</th><th>Projeto</th><th>Regimental</th><th>Total</th><th>Status</th></tr>';
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            list.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHtml(a.nome)}</td>
+                    <td>${escapeHtml(a.rgm)}</td>
+                    <td>${a.parcial.toFixed(2)}</td>
+                    <td>${a.exercicios.toFixed(2)}</td>
+                    <td>${a.projeto.toFixed(2)}</td>
+                    <td>${a.regimental.toFixed(2)}</td>
+                    <td>${a.total.toFixed(2)}</td>
+                    <td class="status ${a.status === 'Aprovado' ? 'aprovado' : 'reprovado'}">${a.status}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            el.tabelaContainer.innerHTML = '';
+            el.tabelaContainer.appendChild(table);
+        }
+
+        function save() {
+            localStorage.setItem(KEY, JSON.stringify(alunos));
+        }
+
+        function load() {
+            try {
+                const raw = localStorage.getItem(KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function limparFormulario() {
+            el.nome.value = '';
+            el.rgm.value = '';
+            el.parcial.value = '';
+            el.exercicios.value = '';
+            el.projeto.value = '';
+            el.regimental.value = '';
+        }
+
+        function mostrarMensagem(texto, erro = false) {
+            el.mensagens.textContent = texto;
+            el.mensagens.className = erro ? 'error' : 'msg';
+        }
+
+        function limparArmazenamento() {
+            if (!confirm('Limpar todos os registros armazenados?')) return;
+            alunos = [];
+            save();
+            renderTabela(alunos);
+            mostrarMensagem('Armazenamento limpo.', false);
+        }
+
+        // simples escape para evitar injeção ao inserir textos na tabela
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // mostra tabela inicialmente se houver dados
+        renderTabela(alunos);
+    </script>
+</body>
+</html>
